@@ -1,26 +1,39 @@
 from llama_cpp import Llama
+from excel_analyzer import analyze_excel
 
 MODEL_PATH = "models/model.gguf"
 
 llm = Llama(
     model_path=MODEL_PATH,
     n_ctx=2048,
-    n_threads=4,
+    n_threads=6,
+    n_batch=256,
+    use_mmap=True,
+    use_mlock=False,
     verbose=False
 )
 
+def ask_llm():
+    metadata = analyze_excel("data/input.xlsx")
 
-def ask_llm(prompt: str) -> str:
+    prompt = f"""
+        Преобразуй данные в валидный JSON.
+
+        Ответ должен содержать только JSON.
+
+        Данные:
+        {metadata}
+    """
+
     response = llm.create_chat_completion(
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-        max_tokens=200
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+        max_tokens=512
     )
 
     return response["choices"][0]["message"]["content"]
 
-
 if __name__ == "__main__":
-    print(ask_llm("Скажи привет одним предложением"))
+    result = ask_llm()
+    print("\nМОДЕЛЬ ЗАГРУЖЕНА\n")
+    print("\nОТВЕТ МОДЕЛИ\n", result)

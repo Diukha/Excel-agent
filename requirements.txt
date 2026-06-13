@@ -1,3 +1,5 @@
 llama-cpp-python
 pandas
+matplotlib
 openpyxl
+langgraph

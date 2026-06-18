@@ -3,3 +3,6 @@ pandas
 matplotlib
 openpyxl
 langgraph
+faiss-cpu
+numpy
+sentence-transformers

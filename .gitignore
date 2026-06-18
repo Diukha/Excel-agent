@@ -1,6 +1,25 @@
+# Игнорируем всё кроме основных файлов
+*
+
+# Исключения - отслеживаемые файлы
+!src/
+!src/*.py
+!tests/
+!tests/*.py
+!data.xlsx
+!requirements.txt
+!run.bat
+!setup.bat
+!.gitignore
+!.git/
+!README.md
+
+# Явно игнорируем ненужное
+models/
 venv/
 __pycache__/
 *.pyc
-
-models/
-data/
+*.pyo
+result.xlsx
+tests/data.xlsx
+tests/result.xlsx

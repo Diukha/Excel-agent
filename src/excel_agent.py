@@ -1,13 +1,11 @@
 """Основной агент для обработки Excel-файлов."""
 
 import json
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 from langgraph.graph import START, StateGraph
 from llama_cpp import LlamaGrammar
 from excel_analyzer import analyze_excel
-from plan_executor import execute_plan
 from pydantic_templates import (
-    ExcelPlan,
     OperationSelection,
     TemplateTaskDecomposition,
     OPERATION_CLASSES,
@@ -49,15 +47,6 @@ DECOMPOSE_TASK_PROMPT = (
     '(например, 7500|B1 означает значение 7500 в ячейке B1).\n',
     "\n",
     "{excel_structure}",
-)
-
-OPERATIONS_EXAMPLES = (
-    "Доступные операции:\n",
-    'СТОЛБЧАТАЯ_ДИАГРАММА: {{"operation":"СТОЛБЧАТАЯ_ДИАГРАММА","args":{{"title":"...","data_columns":[{{"name":"...","excel_column":"X"}},{{"name":"...","excel_column":"Y"}}],"label_column":{{"name":"...","excel_column":"Z"}},"output_sheet":"Диаграмма"}}}}\n',
-    'КРУГОВАЯ_ДИАГРАММА: {{"operation":"КРУГОВАЯ_ДИАГРАММА","args":{{"title":"...","data_column":{{"name":"...","excel_column":"X"}},"label_column":{{"name":"...","excel_column":"Y"}},"output_sheet":"Диаграмма"}}}}\n',
-    'АРИФМЕТИКА: {{"operation":"АРИФМЕТИКА","args":{{"operation_type":"СЛОЖЕНИЕ|ВЫЧИТАНИЕ|УМНОЖЕНИЕ|ДЕЛЕНИЕ","operand1":{{"name":"...","excel_column":"X"}},"operand2":{{"name":"...","excel_column":"Y"}},"result_column_name":"...","result_column_letter":"E","output_sheet":""}}}}\n',
-    'УСЛОВНОЕ_ФОРМАТИРОВАНИЕ: {{"operation":"УСЛОВНОЕ_ФОРМАТИРОВАНИЕ","args":{{"target_column":{{"name":"...","excel_column":"X"}},"operator":"БОЛЬШЕ|МЕНЬШЕ|РАВНО|НЕ_РАВНО|БОЛЬШЕ_ИЛИ_РАВНО|МЕНЬШЕ_ИЛИ_РАВНО","value":100,"fill_color":"00FF00","font_color":"FFFFFF"}}}}\n',
-    'НЕ_ОПРЕДЕЛЕНО: {{"operation":"НЕ_ОПРЕДЕЛЕНО","args":{{"reason":"..."}}}}\n',
 )
 
 EXCEL_STRUCTURE_BLOCK = (
@@ -113,8 +102,6 @@ class AgentState(TypedDict):
     excel_structure: str
     subtasks: str
     subtask_list: list[str]
-    selected_operations: NotRequired[list[dict]]
-    generated_plan: NotRequired[ExcelPlan]
     execution_error: str
     success: bool
 
@@ -184,114 +171,6 @@ class ExcelAgent:
             args_names = ", ".join(cls.Args.model_fields.keys())
             lines.append(f"{name}|{desc}|{args_names}")
         return "\n".join(lines)
-
-    def select_operations(self, state: AgentState) -> dict:
-        """Выбирает операции для подзадач — по одной операции за вызов LLM."""
-        print("\n[AGENT] Выбираю операции для каждой подзадачи (пошагово)...\n")
-
-        operations_text = self._build_operations_text()
-        subtask_list = state["subtask_list"]
-
-        schema = OperationSelection.model_json_schema()
-        grammar = LlamaGrammar.from_json_schema(json.dumps(schema))
-
-        selected_ops: list[dict] = []
-
-        for i, subtask in enumerate(subtask_list, 1):
-            print(f"[AGENT] --- Подзадача {i}/{len(subtask_list)}: {subtask}")
-
-            prompt = "".join(SELECT_SINGLE_OPERATION_PROMPT).format(
-                operations_text=operations_text,
-                subtask=subtask,
-                excel_structure=state["excel_structure"],
-            )
-
-            print(f"\n[AGENT] === PROMPT (select_operation step {i}) ===\n\n{prompt}\n\n[AGENT] === END PROMPT ===\n")
-
-            raw = self.llm_op.ask_llm(
-                prompt=prompt,
-                temperature=0.0,
-                max_tokens=4096,
-                grammar=grammar,
-            )
-
-            selection = OperationSelection(**json.loads(raw))
-            print(f"[AGENT]   → Выбрана операция: {selection.operation}")
-            selected_ops.append({
-                "subtask": subtask,
-                "operation": selection.operation,
-            })
-
-        print(f"\n[AGENT] Все операции выбраны: {[o['operation'] for o in selected_ops]}\n")
-        return {"selected_operations": selected_ops}
-
-    def generate_plan(self, state: AgentState) -> dict:
-        """Генерирует план — заполняет аргументы для каждой операции по отдельности."""
-        print("\n[AGENT] Заполняю аргументы операций (пошагово)...\n")
-        try:
-            selected_ops = state["selected_operations"]
-            filled_operations = []
-
-            for i, op_info in enumerate(selected_ops, 1):
-                op_name = op_info["operation"]
-                subtask = op_info["subtask"]
-                print(f"[AGENT] --- Операция {i}/{len(selected_ops)}: {op_name} для подзадачи: {subtask}")
-
-                op_cls = OPERATION_MAP.get(op_name)
-                if op_cls is None:
-                    print(f"[AGENT]   → Неизвестная операция '{op_name}', пропускаю")
-                    continue
-
-                schema = op_cls.model_json_schema()
-                grammar = LlamaGrammar.from_json_schema(json.dumps(schema))
-
-                prompt = "".join(GENERATE_SINGLE_PLAN_PROMPT).format(
-                    excel_structure=state["excel_structure"],
-                    user_query=state["user_query"],
-                    subtask=subtask,
-                    operation_type=op_name,
-                )
-
-                print(f"\n[AGENT] === PROMPT (generate_plan step {i}) ===\n\n{prompt}\n\n[AGENT] === END PROMPT ===\n")
-
-                raw = self.llm_op.ask_llm(
-                    prompt=prompt,
-                    temperature=0.0,
-                    max_tokens=4096,
-                    grammar=grammar,
-                )
-
-                parsed = json.loads(raw)
-                op_instance = op_cls.parse_args(parsed)
-                filled_operations.append(op_instance)
-                print(f"[AGENT]   → Аргументы заполнены:\n {op_instance.model_dump_json(indent=2)[:200]}...")
-
-            plan = ExcelPlan(operations=filled_operations, summary="План сформирован пошагово")
-            plan_json = plan.model_dump_json(indent=2)
-            print(f"\n[AGENT] Сгенерированный план (JSON):\n{plan_json}\n")
-
-            return {"generated_plan": plan, "success": True}
-        except Exception as e:
-            return {"execution_error": str(e), "success": False}
-
-    def execute_plan_node(self, state: AgentState) -> dict:
-        """Выполняет сгенерированный план."""
-        if not state.get("success"):
-            print(f"\n[AGENT] Выполнение прервано. Причина: {state.get('execution_error')}\n")
-            return state
-
-        print("\n[AGENT] Передаю план в детерминированный исполнитель...\n")
-        print(f"[AGENT] Файл ввода: {state['input_file']}")
-        print(f"[AGENT] Файл вывода: {state['output_file']}")
-        try:
-            execute_plan(state["input_file"], state["output_file"], state["generated_plan"])
-            print("\n[AGENT] Исполнение завершено успешно.\n")
-            return {"success": True}
-        except Exception as e:
-            print(f"\n[AGENT] ОШИБКА при исполнении: {e}\n")
-            import traceback
-            traceback.print_exc()
-            return {"execution_error": str(e), "success": False}
 
     # ------------------------------------------------------------------
     # Пошаговое исполнение: select → fill → execute → re-analyze → repeat

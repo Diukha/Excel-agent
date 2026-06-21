@@ -1,8 +1,4 @@
-"""Pydantic-модели для операций и планов обработки Excel-файлов.
-
-Содержит базовые классы операций, конкретные реализации (диаграммы, арифметика),
-а также модели для декомпозиции задач и плана выполнения.
-"""
+"""Pydantic-модели для операций и планов обработки Excel-файлов."""
 
 from __future__ import annotations
 
@@ -12,12 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class ColumnReference(BaseModel):
-    """Ссылка на столбец Excel.
-
-    Attributes:
-        name: Имя столбца, как оно указано в заголовке.
-        excel_column: Буква столбца в Excel (например, 'B').
-    """
+    """Ссылка на столбец Excel."""
 
     name: str = Field(description="Имя столбца, как оно указано в заголовке Excel")
     excel_column: str = Field(description="Буква столбца в Excel (например, 'B')")
@@ -28,34 +19,20 @@ class ColumnReference(BaseModel):
 # ---------------------------------------------------------------------------
 
 class BaseOperation(BaseModel, ABC):
-    """Базовый абстрактный класс для всех операций.
+    """Базовый абстрактный класс для всех операций."""
 
-    Определяет интерфейс для парсинга аргументов и выполнения операций.
-    """
-
+    DESCRIPTION: str = Field(default="", exclude=True)
     args: dict = Field(default_factory=dict)
 
     @classmethod
     @abstractmethod
     def parse_args(cls, json_data: dict) -> BaseOperation:
-        """Создаёт экземпляр из JSON-словаря.
-
-        Args:
-            json_data: Словарь с данными операции (включая поле 'args').
-
-        Returns:
-            Экземпляр операции.
-        """
+        """Создаёт экземпляр из JSON-словаря."""
         ...
 
     @abstractmethod
     def execute(self, input_file: str, output_file: str) -> None:
-        """Выполняет операцию.
-
-        Args:
-            input_file: Путь к входному Excel-файлу.
-            output_file: Путь для сохранения результата.
-        """
+        """Выполняет операцию."""
         ...
 
 
@@ -64,22 +41,12 @@ class BaseOperation(BaseModel, ABC):
 # ---------------------------------------------------------------------------
 
 class BarChartOperation(BaseOperation):
-    """Операция создания столбчатой диаграммы.
+    """Операция создания столбчатой диаграммы."""
 
-    Attributes:
-        operation: Тип операции (литерал "СТОЛБЧАТАЯ_ДИАГРАММА").
-        args: Аргументы для создания диаграммы.
-    """
+    DESCRIPTION: str = Field(default="Создаёт столбчатую диаграмму по указанным столбцам данных", exclude=True)
 
     class Args(BaseModel):
-        """Аргументы для создания столбчатой диаграммы.
-
-        Attributes:
-            title: Заголовок диаграммы.
-            data_columns: Столбцы со значениями (ось Y).
-            label_column: Столбец с подписями (ось X).
-            output_sheet: Имя листа для диаграммы.
-        """
+        """Аргументы для создания столбчатой диаграммы."""
 
         title: str = Field(description="Заголовок диаграммы")
         data_columns: list[ColumnReference] = Field(description="Столбцы со значениями (ось Y)")
@@ -91,24 +58,12 @@ class BarChartOperation(BaseOperation):
 
     @classmethod
     def parse_args(cls, json_data: dict) -> BarChartOperation:
-        """Создаёт экземпляр из JSON-словаря.
-
-        Args:
-            json_data: Словарь с данными операции.
-
-        Returns:
-            Экземпляр BarChartOperation.
-        """
+        """Создаёт экземпляр из JSON-словаря."""
         args = cls.Args(**json_data.get("args", json_data))
         return cls(operation=json_data["operation"], args=args)
 
     def execute(self, input_file: str, output_file: str) -> None:
-        """Создаёт столбчатую диаграмму в Excel-файле.
-
-        Args:
-            input_file: Путь к входному Excel-файлу.
-            output_file: Путь для сохранения результата.
-        """
+        """Создаёт столбчатую диаграмму в Excel-файле."""
         from openpyxl import load_workbook
         from openpyxl.chart import BarChart, Reference
         from openpyxl.utils import column_index_from_string
@@ -165,22 +120,12 @@ class BarChartOperation(BaseOperation):
 
 
 class PieChartOperation(BaseOperation):
-    """Операция создания круговой диаграммы.
+    """Операция создания круговой диаграммы."""
 
-    Attributes:
-        operation: Тип операции (литерал "КРУГОВАЯ_ДИАГРАММА").
-        args: Аргументы для создания диаграммы.
-    """
+    DESCRIPTION: str = Field(default="Создаёт круговую диаграмму (секторную) по указанным столбцам данных", exclude=True)
 
     class Args(BaseModel):
-        """Аргументы для создания круговой диаграммы.
-
-        Attributes:
-            title: Заголовок диаграммы.
-            data_column: Столбец со значениями.
-            label_column: Столбец с подписями (секторов).
-            output_sheet: Имя листа для диаграммы.
-        """
+        """Аргументы для создания круговой диаграммы."""
 
         title: str = Field(description="Заголовок диаграммы")
         data_column: ColumnReference = Field(description="Столбец со значениями")
@@ -192,24 +137,12 @@ class PieChartOperation(BaseOperation):
 
     @classmethod
     def parse_args(cls, json_data: dict) -> PieChartOperation:
-        """Создаёт экземпляр из JSON-словаря.
-
-        Args:
-            json_data: Словарь с данными операции.
-
-        Returns:
-            Экземпляр PieChartOperation.
-        """
+        """Создаёт экземпляр из JSON-словаря."""
         args = cls.Args(**json_data.get("args", json_data))
         return cls(operation=json_data["operation"], args=args)
 
     def execute(self, input_file: str, output_file: str) -> None:
-        """Создаёт круговую диаграмму в Excel-файле.
-
-        Args:
-            input_file: Путь к входному Excel-файлу.
-            output_file: Путь для сохранения результата.
-        """
+        """Создаёт круговую диаграмму в Excel-файле."""
         from openpyxl import load_workbook
         from openpyxl.chart import PieChart, Reference
         from openpyxl.utils import column_index_from_string
@@ -247,24 +180,12 @@ class PieChartOperation(BaseOperation):
 
 
 class ArithmeticOperation(BaseOperation):
-    """Операция арифметических вычислений.
+    """Операция арифметических вычислений."""
 
-    Attributes:
-        operation: Тип операции (литерал "АРИФМЕТИКА").
-        args: Аргументы для выполнения вычислений.
-    """
+    DESCRIPTION: str = Field(default="Выполняет арифметическую операцию (сложение, вычитание, умножение, деление) над двумя столбцами и записывает результат в новый столбец", exclude=True)
 
     class Args(BaseModel):
-        """Аргументы для арифметической операции.
-
-        Attributes:
-            operation_type: Тип операции (СЛОЖЕНИЕ, ВЫЧИТАНИЕ, УМНОЖЕНИЕ, ДЕЛЕНИЕ).
-            operand1: Первый операнд (столбец).
-            operand2: Второй операнд (столбец).
-            result_column_name: Имя нового столбца с результатом.
-            result_column_letter: Буква столбца для результата (например, 'E').
-            output_sheet: Лист для записи. Пусто = активный лист.
-        """
+        """Аргументы для арифметической операции."""
 
         operation_type: Literal["СЛОЖЕНИЕ", "ВЫЧИТАНИЕ", "УМНОЖЕНИЕ", "ДЕЛЕНИЕ"]
         operand1: ColumnReference = Field(description="Первый операнд (столбец)")
@@ -278,24 +199,12 @@ class ArithmeticOperation(BaseOperation):
 
     @classmethod
     def parse_args(cls, json_data: dict) -> ArithmeticOperation:
-        """Создаёт экземпляр из JSON-словаря.
-
-        Args:
-            json_data: Словарь с данными операции.
-
-        Returns:
-            Экземпляр ArithmeticOperation.
-        """
+        """Создаёт экземпляр из JSON-словаря."""
         args = cls.Args(**json_data.get("args", json_data))
         return cls(operation=json_data["operation"], args=args)
 
     def execute(self, input_file: str, output_file: str) -> None:
-        """Выполняет арифметическую операцию и записывает результат в столбец.
-
-        Args:
-            input_file: Путь к входному Excel-файлу.
-            output_file: Путь для сохранения результата.
-        """
+        """Выполняет арифметическую операцию и записывает результат в столбец."""
         from openpyxl import load_workbook
         from openpyxl.utils import column_index_from_string
 
@@ -333,19 +242,12 @@ class ArithmeticOperation(BaseOperation):
 
 
 class UndefinedOperation(BaseOperation):
-    """Операция-заглушка для неопределённых задач.
+    """Операция-заглушка для неопределённых задач."""
 
-    Attributes:
-        operation: Тип операции (литерал "НЕ_ОПРЕДЕЛЕНО").
-        args: Аргументы с описанием причины.
-    """
+    DESCRIPTION: str = Field(default="Операция не может быть выполнена (заглушка)", exclude=True)
 
     class Args(BaseModel):
-        """Аргументы для неопределённой операции.
-
-        Attributes:
-            reason: Причина, почему операция не может быть выполнена.
-        """
+        """Аргументы для неопределённой операции."""
 
         reason: str
 
@@ -354,25 +256,27 @@ class UndefinedOperation(BaseOperation):
 
     @classmethod
     def parse_args(cls, json_data: dict) -> UndefinedOperation:
-        """Создаёт экземпляр из JSON-словаря.
-
-        Args:
-            json_data: Словарь с данными операции.
-
-        Returns:
-            Экземпляр UndefinedOperation.
-        """
+        """Создаёт экземпляр из JSON-словаря."""
         args = cls.Args(**json_data.get("args", json_data))
         return cls(operation=json_data["operation"], args=args)
 
     def execute(self, input_file: str, output_file: str) -> None:
-        """Выводит сообщение о пропуске операции.
-
-        Args:
-            input_file: Путь к входному Excel-файлу (не используется).
-            output_file: Путь для сохранения результата (не используется).
-        """
+        """Выводит сообщение о пропуске операции."""
         print(f"[EXECUTOR] Пропуск: {self.args.reason}")
+
+
+# ---------------------------------------------------------------------------
+# Единый реестр операций
+# ---------------------------------------------------------------------------
+
+OPERATION_CLASSES: list[type[BaseOperation]] = [
+    BarChartOperation,
+    PieChartOperation,
+    ArithmeticOperation,
+    UndefinedOperation,
+]
+
+OPERATION_MAP: dict[str, type[BaseOperation]] = {cls.__name__: cls for cls in OPERATION_CLASSES}
 
 
 # ---------------------------------------------------------------------------
@@ -380,46 +284,35 @@ class UndefinedOperation(BaseOperation):
 # ---------------------------------------------------------------------------
 
 ExcelOperation = Annotated[
-    Union[
-        BarChartOperation,
-        PieChartOperation,
-        ArithmeticOperation,
-        UndefinedOperation,
-    ],
+    Union[tuple(OPERATION_CLASSES)],
     Field(discriminator="operation"),
 ]
 
 
 class TaskStep(BaseModel):
-    """Шаг декомпозиции задачи.
-
-    Attributes:
-        step: Номер действия.
-        action: Описание действия.
-    """
+    """Шаг декомпозиции задачи."""
 
     step: int = Field(description="Номер действия")
     action: str = Field(description="Что нужно сделать")
 
 
 class TemplateTaskDecomposition(BaseModel):
-    """Модель для декомпозиции задачи на отдельные действия.
+    """Модель для декомпозиции задачи на отдельные действия."""
 
-    Attributes:
-        steps: Список шагов декомпозиции.
-    """
-
-    """Разбиение задачи на отдельные действия"""
     steps: list[TaskStep]
 
 
-class ExcelPlan(BaseModel):
-    """Модель плана обработки Excel-файла.
+class OperationSelection(BaseModel):
+    """Выбор одной операции для одной подзадачи."""
 
-    Attributes:
-        operations: Список операций для выполнения.
-        summary: Краткое описание того, что будет сделано.
-    """
+    operation: str = Field(description="Имя операции из доступного списка")
+
+
+class ExcelPlan(BaseModel):
+    """Модель плана обработки Excel-файла."""
 
     operations: list[ExcelOperation]
     summary: str = Field(description="Краткое описание того, что будет сделано")
+
+
+

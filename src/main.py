@@ -10,11 +10,8 @@ import sys
 from pathlib import Path
 from llm_operator import LLMOperator
 from excel_agent import ExcelAgent
-from operation_embedder import OperationEmbedder
 
-# DEFAULT_MODEL_PATH = "C:\\Users\\y9798\\Downloads\\Vikhr-Llama-3.2-1B-F16.gguf"
 DEFAULT_MODEL_PATH = "C:\\Users\\y9798\\Downloads\\qwen3-4b-instruct-2507.Q4_K_M.gguf"
-EMBEDDING_MODEL_PATH = "models/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def parse_args() -> argparse.Namespace:
@@ -114,16 +111,12 @@ def main() -> None:
 
     llm_op = LLMOperator(model_path=str(model_path))
 
-    print("Loading embedding model...")
-    embedder = OperationEmbedder(model_name=EMBEDDING_MODEL_PATH)
-    print("Embedding model loaded.\n")
-
     print("--- TASK ---")
     print(args.query)
     print(f"Input:  {input_file}")
     print(f"Output: {output_file}\n")
 
-    agent = ExcelAgent(llm_operator=llm_op, embedder=embedder)
+    agent = ExcelAgent(llm_operator=llm_op)
     agent.run(user_query=args.query, input_file=input_file, output_file=output_file)
 
 

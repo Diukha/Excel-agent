@@ -1,24 +1,13 @@
-"""Обёртка над llama.cpp для работы с локальными LLM-моделями.
-
-Предоставляет простой интерфейс для загрузки модели и выполнения
-запросов с поддержкой streaming и грамматик (structured output).
-"""
+"""Обёртка над llama.cpp для работы с локальными LLM-моделями."""
 
 from llama_cpp import Llama, LlamaGrammar
 
 
 class LLMOperator:
-    """Класс для взаимодействия с локальной LLM через llama.cpp.
-
-    Поддерживает streaming-вывод и structured output с помощью грамматик.
-    """
+    """Класс для взаимодействия с локальной LLM через llama.cpp."""
 
     def __init__(self, model_path: str) -> None:
-        """Загружает LLM-модель из файла .gguf.
-
-        Args:
-            model_path: Путь к файлу модели .gguf.
-        """
+        """Загружает LLM-модель из файла .gguf."""
         print("Loading model...")
         self.llm = Llama(
             model_path=model_path,
@@ -28,7 +17,7 @@ class LLMOperator:
             n_batch=1024,
             n_gpu_layers=0,
             use_mmap=True,
-            use_mlock=True,
+            use_mlock=False,
             verbose=False,
             logits_all=False,
             embedding=False,
@@ -39,23 +28,17 @@ class LLMOperator:
         self,
         prompt: str,
         temperature: float = 0.3,
+        top_p=0.9,
+        top_k=50,
         max_tokens: int = 4096,
         grammar: LlamaGrammar | None = None,
     ) -> str:
-        """Отправляет промпт модели и возвращает ответ.
-
-        Args:
-            prompt: Текст запроса к модели.
-            temperature: Температура генерации (0.0-1.0).
-            max_tokens: Максимальное количество токенов в ответе.
-            grammar: Опциональная грамматика для structured output.
-
-        Returns:
-            Строка с ответом модели.
-        """
+        """Отправляет промпт модели и возвращает ответ."""
         kwargs: dict = {
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
+            "top_p": top_p,
+            "top_k": top_k,
             "max_tokens": max_tokens,
             "stream": True,
         }
@@ -69,3 +52,5 @@ class LLMOperator:
                 chunks.append(delta["content"])
         print()
         return "".join(chunks)
+
+

@@ -241,6 +241,62 @@ class ArithmeticOperation(BaseOperation):
         print(f"[EXECUTOR] Арифметика: {a.operand1.name} {a.operation_type} {a.operand2.name} → '{a.result_column_name}' [столбец {a.result_column_letter}]")
 
 
+class ConditionalFormatOperation(BaseOperation):
+    """Операция условного форматирования ячеек."""
+
+    DESCRIPTION: str = Field(default="Форматирует ячейки столбца по одному из условий: БОЛЬШЕ, МЕНЬШЕ, РАВНО, НЕ_РАВНО, БОЛЬШЕ_ИЛИ_РАВНО, МЕНЬШЕ_ИЛИ_РАВНО", exclude=True)
+
+    class Args(BaseModel):
+        """Аргументы для условного форматирования."""
+
+        target_column: ColumnReference = Field(description="Столбец, к которому применяется форматирование")
+        operator: Literal["БОЛЬШЕ", "МЕНЬШЕ", "РАВНО", "НЕ_РАВНО", "БОЛЬШЕ_ИЛИ_РАВНО", "МЕНЬШЕ_ИЛИ_РАВНО"]
+        value: Union[float, str] = Field(description="Значение для сравнения (число или строка)")
+        fill_color: str = Field(default="FF0000", description="Цвет фона в hex без # (например, C6EFCE = зелёный)")
+        font_color: str = Field(default="000000", description="Цвет текста в hex без #")
+
+    operation: Literal["УСЛОВНОЕ_ФОРМАТИРОВАНИЕ"]
+    args: Args
+
+    @classmethod
+    def parse_args(cls, json_data: dict) -> ConditionalFormatOperation:
+        args = cls.Args(**json_data.get("args", json_data))
+        return cls(operation=json_data["operation"], args=args)
+
+    def execute(self, input_file: str, output_file: str) -> None:
+        from openpyxl import load_workbook
+        from openpyxl.utils import column_index_from_string
+        from openpyxl.formatting.rule import CellIsRule
+        from openpyxl.styles import PatternFill, Font
+
+        a = self.args
+        wb = load_workbook(input_file)
+        ws = wb.active
+
+        col_letter = a.target_column.excel_column
+        cell_range = f"{col_letter}2:{col_letter}{ws.max_row}"
+
+        OPERATOR_MAP = {
+            "БОЛЬШЕ": "greaterThan",
+            "МЕНЬШЕ": "lessThan",
+            "РАВНО": "equal",
+            "НЕ_РАВНО": "notEqual",
+            "БОЛЬШЕ_ИЛИ_РАВНО": "greaterThanOrEqual",
+            "МЕНЬШЕ_ИЛИ_РАВНО": "lessThanOrEqual",
+        }
+
+        rule = CellIsRule(
+            operator=OPERATOR_MAP[a.operator],
+            formula=[str(a.value)],
+            fill=PatternFill(start_color=a.fill_color, end_color=a.fill_color, fill_type="solid"),
+            font=Font(color=a.font_color),
+        )
+        ws.conditional_formatting.add(cell_range, rule)
+
+        wb.save(output_file)
+        print(f"[EXECUTOR] Условное форматирование: {a.target_column.name} {a.operator} {a.value} → {col_letter}")
+
+
 class UndefinedOperation(BaseOperation):
     """Операция-заглушка для неопределённых задач."""
 
@@ -273,6 +329,7 @@ OPERATION_CLASSES: list[type[BaseOperation]] = [
     BarChartOperation,
     PieChartOperation,
     ArithmeticOperation,
+    ConditionalFormatOperation,
     UndefinedOperation,
 ]
 

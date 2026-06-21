@@ -13,53 +13,72 @@ PLAN_JSON = """{
   "operations": [
     {
       "args": {
-        "title": "Круговая диаграмма",
-        "data_column": {
-          "name": "B",
-          "excel_column": "B"
-        },
-        "label_column": {
-          "name": "A",
-          "excel_column": "A"
-        },
-        "output_sheet": "Sheet1"
-      },
-      "operation": "КРУГОВАЯ_ДИАГРАММА"
-    },
-    {
-      "args": {
-        "operation_type": "СЛОЖЕНИЕ",
+        "operation_type": "ВЫЧИТАНИЕ",
         "operand1": {
-          "name": "B",
+          "name": "Выручка",
           "excel_column": "B"
         },
         "operand2": {
-          "name": "C",
+          "name": "Расходы",
           "excel_column": "C"
         },
-        "result_column_name": "D",
-        "result_column_letter": "D",
-        "output_sheet": "Sheet1"
+        "result_column_name": "Прибыль",
+        "result_column_letter": "E",
+        "output_sheet": ""
       },
       "operation": "АРИФМЕТИКА"
     },
     {
       "args": {
-        "title": "Круговая диаграмма",
+        "target_column": {
+          "name": "C1:C3",
+          "excel_column": "C"
+        },
+        "operator": "МЕНЬШЕ",
+        "value": 0.0,
+        "fill_color": "FF0000",
+        "font_color": "FFFFFF"
+      },
+      "operation": "УСЛОВНОЕ_ФОРМАТИРОВАНИЕ"
+    },
+    {
+      "args": {
+        "title": "Сравнение выручки и расходов",
+        "data_columns": [
+          {
+            "name": "Выручка",
+            "excel_column": "B"
+          },
+          {
+            "name": "Расходы",
+            "excel_column": "C"
+          }
+        ],
+        "label_column": {
+          "name": "Дата",
+          "excel_column": "A"
+        },
+        "output_sheet": "Диаграмма1"
+      },
+      "operation": "СТОЛБЧАТАЯ_ДИАГРАММА"
+    },
+    {
+      "args": {
+        "title": "Количество мероприятий",
         "data_column": {
-          "name": "D",
+          "name": "Количество",
           "excel_column": "D"
         },
         "label_column": {
-          "name": "A",
-          "excel_column": "A"
+          "name": "Ячейка",
+          "excel_column": "D"
         },
-        "output_sheet": "Sheet1"
+        "output_sheet": "Диаграмма_Мероприятия"
       },
       "operation": "КРУГОВАЯ_ДИАГРАММА"
     }
   ],
-  "summary": "Создание круговой диаграммы по столбцу B"
+  "summary": "План сформирован пошагово"
 }"""
 
 

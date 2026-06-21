@@ -56,6 +56,7 @@ OPERATIONS_EXAMPLES = (
     'СТОЛБЧАТАЯ_ДИАГРАММА: {{"operation":"СТОЛБЧАТАЯ_ДИАГРАММА","args":{{"title":"...","data_columns":[{{"name":"...","excel_column":"X"}},{{"name":"...","excel_column":"Y"}}],"label_column":{{"name":"...","excel_column":"Z"}},"output_sheet":"Диаграмма"}}}}\n',
     'КРУГОВАЯ_ДИАГРАММА: {{"operation":"КРУГОВАЯ_ДИАГРАММА","args":{{"title":"...","data_column":{{"name":"...","excel_column":"X"}},"label_column":{{"name":"...","excel_column":"Y"}},"output_sheet":"Диаграмма"}}}}\n',
     'АРИФМЕТИКА: {{"operation":"АРИФМЕТИКА","args":{{"operation_type":"СЛОЖЕНИЕ|ВЫЧИТАНИЕ|УМНОЖЕНИЕ|ДЕЛЕНИЕ","operand1":{{"name":"...","excel_column":"X"}},"operand2":{{"name":"...","excel_column":"Y"}},"result_column_name":"...","result_column_letter":"E","output_sheet":""}}}}\n',
+    'УСЛОВНОЕ_ФОРМАТИРОВАНИЕ: {{"operation":"УСЛОВНОЕ_ФОРМАТИРОВАНИЕ","args":{{"target_column":{{"name":"...","excel_column":"X"}},"operator":"БОЛЬШЕ|МЕНЬШЕ|РАВНО|НЕ_РАВНО|БОЛЬШЕ_ИЛИ_РАВНО|МЕНЬШЕ_ИЛИ_РАВНО","value":100,"fill_color":"00FF00","font_color":"FFFFFF"}}}}\n',
     'НЕ_ОПРЕДЕЛЕНО: {{"operation":"НЕ_ОПРЕДЕЛЕНО","args":{{"reason":"..."}}}}\n',
 )
 
@@ -266,7 +267,7 @@ class ExcelAgent:
                 parsed = json.loads(raw)
                 op_instance = op_cls.parse_args(parsed)
                 filled_operations.append(op_instance)
-                print(f"[AGENT]   → Аргументы заполнены: {op_instance.model_dump_json(indent=2)[:200]}...")
+                print(f"[AGENT]   → Аргументы заполнены:\n {op_instance.model_dump_json(indent=2)[:200]}...")
 
             plan = ExcelPlan(operations=filled_operations, summary="План сформирован пошагово")
             plan_json = plan.model_dump_json(indent=2)

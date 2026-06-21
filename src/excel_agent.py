@@ -98,7 +98,8 @@ GENERATE_SINGLE_PLAN_PROMPT = (
     "\n",
     "Заполни аргументы для этой операции, используя данные из таблицы.\n",
     'Каждая операция содержит поле "operation" (тип) и поле "args" (параметры).\n',
-    *OPERATIONS_EXAMPLES,
+    "\n",
+    "{use_case}\n",
 )
 
 
@@ -131,15 +132,11 @@ class ExcelAgent:
         workflow = StateGraph(AgentState)
         workflow.add_node("analyze_excel", self.analyze_excel)
         workflow.add_node("decompose_task", self.decompose_task)
-        workflow.add_node("select_operations", self.select_operations)
-        workflow.add_node("generate_plan", self.generate_plan)
-        workflow.add_node("execute_plan", self.execute_plan_node)
+        workflow.add_node("process_subtasks", self.process_subtasks)
 
         workflow.add_edge(START, "analyze_excel")
         workflow.add_edge("analyze_excel", "decompose_task")
-        workflow.add_edge("decompose_task", "select_operations")
-        workflow.add_edge("select_operations", "generate_plan")
-        workflow.add_edge("generate_plan", "execute_plan")
+        workflow.add_edge("decompose_task", "process_subtasks")
 
         return workflow.compile()
 
@@ -295,6 +292,110 @@ class ExcelAgent:
             import traceback
             traceback.print_exc()
             return {"execution_error": str(e), "success": False}
+
+    # ------------------------------------------------------------------
+    # Пошаговое исполнение: select → fill → execute → re-analyze → repeat
+    # ------------------------------------------------------------------
+
+    def select_operation_template(self, subtask: str, excel_structure: str) -> str:
+        """Выбирает одну операцию для подзадачи."""
+        operations_text = self._build_operations_text()
+
+        schema = OperationSelection.model_json_schema()
+        grammar = LlamaGrammar.from_json_schema(json.dumps(schema))
+
+        prompt = "".join(SELECT_SINGLE_OPERATION_PROMPT).format(
+            operations_text=operations_text,
+            subtask=subtask,
+            excel_structure=excel_structure,
+        )
+
+        print(f"\n[AGENT] === PROMPT (select_operation_template) ===\n\n{prompt}\n\n[AGENT] === END PROMPT ===\n")
+
+        raw = self.llm_op.ask_llm(
+            prompt=prompt,
+            temperature=0.0,
+            max_tokens=4096,
+            grammar=grammar,
+        )
+
+        selection = OperationSelection(**json.loads(raw))
+        print(f"[AGENT]   → Выбрана операция: {selection.operation}")
+        return selection.operation
+
+    def fill_operation_template(self, subtask: str, operation_type: str, excel_structure: str) -> dict:
+        """Заполняет аргументы для одной операции."""
+        op_cls = OPERATION_MAP.get(operation_type)
+        if op_cls is None:
+            raise ValueError(f"Неизвестная операция: {operation_type}")
+
+        schema = op_cls.model_json_schema()
+        grammar = LlamaGrammar.from_json_schema(json.dumps(schema))
+
+        use_case = op_cls.model_fields["USE_CASE"].default
+
+        prompt = "".join(GENERATE_SINGLE_PLAN_PROMPT).format(
+            excel_structure=excel_structure,
+            user_query="",
+            subtask=subtask,
+            operation_type=operation_type,
+            use_case=use_case,
+        )
+
+        print(f"\n[AGENT] === PROMPT (fill_operation_template) ===\n\n{prompt}\n\n[AGENT] === END PROMPT ===\n")
+
+        raw = self.llm_op.ask_llm(
+            prompt=prompt,
+            temperature=0.0,
+            max_tokens=4096,
+            grammar=grammar,
+        )
+
+        parsed = json.loads(raw)
+        op_instance = op_cls.parse_args(parsed)
+        print(f"[AGENT]   → Аргументы заполнены:\n {op_instance.model_dump_json(indent=2)[:300]}...")
+        return op_instance
+
+    def execute_operation(self, input_file: str, output_file: str, operation) -> None:
+        """Выполняет одну операцию. Копирует input → output только при первом вызове."""
+        import shutil
+        import os
+
+        if not os.path.exists(output_file):
+            shutil.copy2(input_file, output_file)
+
+        print(f"[AGENT] Выполняю операцию: {operation.operation}")
+        operation.execute(output_file, output_file)
+
+    def process_subtasks(self, state: AgentState) -> dict:
+        """Пошагово обрабатывает каждую подзадачу: select → fill → execute → re-analyze."""
+        print("\n[AGENT] Пошаговое исполнение подзадач...\n")
+
+        subtask_list = state["subtask_list"]
+        input_file = state["input_file"]
+        output_file = state["output_file"]
+        excel_structure = state["excel_structure"]
+
+        for i, subtask in enumerate(subtask_list, 1):
+            print(f"\n[AGENT] ===== Подзадача {i}/{len(subtask_list)}: {subtask} =====\n")
+
+            try:
+                operation_type = self.select_operation_template(subtask, excel_structure)
+                operation = self.fill_operation_template(subtask, operation_type, excel_structure)
+                self.execute_operation(input_file, output_file, operation)
+
+                print(f"\n[AGENT] Подзадача {i} выполнена. Пересчитываю структуру таблицы...\n")
+                excel_structure = analyze_excel(output_file)
+                print(f"[AGENT] Новая структура:\n{excel_structure}\n")
+
+            except Exception as e:
+                print(f"\n[AGENT] ОШИБКА на подзадаче {i}: {e}\n")
+                import traceback
+                traceback.print_exc()
+                return {"execution_error": str(e), "success": False}
+
+        print("\n[AGENT] Все подзадачи выполнены успешно.\n")
+        return {"success": True}
 
     def run(self, user_query: str, input_file: str, output_file: str) -> AgentState:
         """Запускает полный пайплайн обработки Excel-файла."""

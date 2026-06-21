@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from llm_operator import LLMOperator
 from excel_agent import ExcelAgent
+from logger import Logger
 
 DEFAULT_MODEL_PATH = "C:\\Users\\y9798\\Downloads\\qwen3-4b-instruct-2507.Q4_K_M.gguf"
 
@@ -103,6 +104,9 @@ def main() -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    logger = Logger(input_file)
+    logger.start()
+
     model_path = Path(args.model)
     if not model_path.exists():
         print(f"Model not found: {model_path}", file=sys.stderr)
@@ -118,6 +122,9 @@ def main() -> None:
 
     agent = ExcelAgent(llm_operator=llm_op)
     agent.run(user_query=args.query, input_file=input_file, output_file=output_file)
+
+    logger.stop()
+    print(f"\nЛог сохранён: {logger.log_path}")
 
 
 if __name__ == "__main__":

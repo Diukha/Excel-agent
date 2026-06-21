@@ -22,6 +22,7 @@ class BaseOperation(BaseModel, ABC):
     """Базовый абстрактный класс для всех операций."""
 
     DESCRIPTION: str = Field(default="", exclude=True)
+    USE_CASE: str = Field(default="", exclude=True)
     args: dict = Field(default_factory=dict)
 
     @classmethod
@@ -44,6 +45,7 @@ class BarChartOperation(BaseOperation):
     """Операция создания столбчатой диаграммы."""
 
     DESCRIPTION: str = Field(default="Создаёт столбчатую диаграмму по указанным столбцам данных", exclude=True)
+    USE_CASE: str = Field(default='Пример: {"operation":"СТОЛБЧАТАЯ_ДИАГРАММА","args":{"title":"Продажи по регионам","data_columns":[{"name":"Продажи","excel_column":"B"},{"name":"План","excel_column":"C"}],"label_column":{"name":"Регион","excel_column":"A"},"output_sheet":"Столбчатая диаграмма"}}', exclude=True)
 
     class Args(BaseModel):
         """Аргументы для создания столбчатой диаграммы."""
@@ -123,6 +125,7 @@ class PieChartOperation(BaseOperation):
     """Операция создания круговой диаграммы."""
 
     DESCRIPTION: str = Field(default="Создаёт круговую диаграмму (секторную) по указанным столбцам данных", exclude=True)
+    USE_CASE: str = Field(default='Пример: {"operation":"КРУГОВАЯ_ДИАГРАММА","args":{"title":"Доли по категориям","data_column":{"name":"Объём","excel_column":"B"},"label_column":{"name":"Категория","excel_column":"A"},"output_sheet":"Круговая диаграмма"}}', exclude=True)
 
     class Args(BaseModel):
         """Аргументы для создания круговой диаграммы."""
@@ -183,6 +186,7 @@ class ArithmeticOperation(BaseOperation):
     """Операция арифметических вычислений."""
 
     DESCRIPTION: str = Field(default="Выполняет арифметическую операцию (сложение, вычитание, умножение, деление) над двумя столбцами и записывает результат в новый столбец", exclude=True)
+    USE_CASE: str = Field(default='Пример: {"operation":"АРИФМЕТИКА","args":{"operation_type":"УМНОЖЕНИЕ","operand1":{"name":"X","excel_column":"B"},"operand2":{"name":"Y","excel_column":"C"},"result_column_name":"X*Y","result_column_letter":"D","output_sheet":""}}', exclude=True)
 
     class Args(BaseModel):
         """Аргументы для арифметической операции."""
@@ -245,6 +249,7 @@ class ConditionalFormatOperation(BaseOperation):
     """Операция условного форматирования ячеек."""
 
     DESCRIPTION: str = Field(default="Форматирует ячейки столбца по одному из условий: БОЛЬШЕ, МЕНЬШЕ, РАВНО, НЕ_РАВНО, БОЛЬШЕ_ИЛИ_РАВНО, МЕНЬШЕ_ИЛИ_РАВНО", exclude=True)
+    USE_CASE: str = Field(default='Пример: {"operation":"УСЛОВНОЕ_ФОРМАТИРОВАНИЕ","args":{"target_column":{"name":"X","excel_column":"D"},"operator":"НЕ_РАВНО","value":2,"fill_color":"00FF00","font_color":"FFFFFF"}}', exclude=True)
 
     class Args(BaseModel):
         """Аргументы для условного форматирования."""

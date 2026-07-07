@@ -7,17 +7,15 @@
 - Запрос на русском: «Возьми data.xlsx, посчитай прибыль, сделай столбчатую диаграмму»
 - Автоанализ структуры Excel (листы, столбцы, типы, примеры строк)
 - Декомпозиция задачи на подзадачи с помощью LLM
-- Поиск операций через эмбеддинги (FAISS + sentence-transformers)
-- Генерация плана с аргументами через structured output (grammar)
-- Детерминированное выполнение: арифметика, столбчатые и круговые диаграммы
+- Выбор и заполнение операций через structured output (grammar)
+- Детерминированное выполнение: арифметика, диаграммы, условное форматирование
 - Безопасное выполнение: никакого генерируемого кода, только готовые операции
 
 ## Подготовка
 
 1. Создайте папку `models/`
-2. Скачайте `.gguf` модель (рекомендуется Qwen3-4B или аналог)
-3. Скачайте модель `paraphrase-multilingual-MiniLM-L12-v2` для эмбеддингов
-4. Запустите `setup.bat`
+2. Скачайте `.gguf` модель (рекомендуется Qwen3-4B или аналог) и положите её в папку `models` как `model.gguf`
+3. Запустите `setup.bat`
 
 ## Запуск
 
@@ -30,7 +28,7 @@
 ## Архитектура
 
 ```
-START → analyze_excel → decompose_task → find_operations → generate_plan → execute_plan
+START → analyze_excel → decompose_task → process_subtasks
 ```
 
 ### Этапы графа
@@ -39,9 +37,7 @@ START → analyze_excel → decompose_task → find_operations → generate_plan
 |---|------|------------|
 | 1 | `analyze_excel` | Анализ структуры Excel для контекста LLM |
 | 2 | `decompose_task` | Разбиение задачи на отдельные подзадачи |
-| 3 | `find_operations` | Поиск операций для каждой подзадачи через эмбеддинги |
-| 4 | `generate_plan` | Заполнение аргументов операций через LLM (structured output) |
-| 5 | `execute_plan` | Детерминированное выполнение плана |
+| 3 | `process_subtasks` | Пошаговое исполнение: выбор операции → заполнение аргументов → выполнение → пересчёт структуры |
 
 ### Операции
 
@@ -50,6 +46,7 @@ START → analyze_excel → decompose_task → find_operations → generate_plan
 | `СТОЛБЧАТАЯ_ДИАГРАММА` | Создание столбчатой диаграммы |
 | `КРУГОВАЯ_ДИАГРАММА` | Создание круговой диаграммы |
 | `АРИФМЕТИКА` | Арифметические вычисления между столбцами |
+| `УСЛОВНОЕ_ФОРМАТИРОВАНИЕ` | Форматирование ячеек по условию |
 | `НЕ_ОПРЕДЕЛЕНО` | Задача не может быть выполнена |
 
 ## Файлы
@@ -59,16 +56,15 @@ START → analyze_excel → decompose_task → find_operations → generate_plan
 | `src/main.py` | Точка входа, CLI |
 | `src/excel_agent.py` | Основной агент (LangGraph) |
 | `src/llm_operator.py` | Обёртка над llama.cpp |
-| `src/operation_embedder.py` | Эмбеддинговый поиск операций |
 | `src/pydantic_templates.py` | Pydantic-модели операций и планов |
 | `src/plan_executor.py` | Исполнение плана |
-| `src/result_excel_plan_generator.py` | Генерация плана через LLM |
-| `src/excel_analyzer.py` | Анализ структуры Excel |
-| `src/operations_storage.py` | Хранилище операций |
+| `src/excel_analyzer.py` | Анализ структуры Excel (sheetwise) |
+| `src/logger.py` | Логирование вывода в файл |
 
 ## Зависимости
 
 - llama-cpp-python — локальная LLM
 - langgraph — граф состояний
-- sentence-transformers + faiss-cpu — эмбеддинги для поиска операций
 - openpyxl — работа с Excel
+- sheetwise — анализ структуры Excel
+- pandas, numpy, matplotlib — вспомогательные библиотеки

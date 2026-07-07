@@ -6,3 +6,5 @@ models/
 src/__pycache__
 result.xlsx
 tests/__pycache__
+
+logs/
